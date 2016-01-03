@@ -104,7 +104,6 @@ class PPMDecoder(object):
         """
         if w > self._marker:
             self._ch = 0
-            self._ev.syn()
             return
 
         if self._ch is None or self._ch not in self._mapping:
@@ -113,6 +112,7 @@ class PPMDecoder(object):
         duration = float(w) / self._rate
         value = int((duration - 0.0007) * 1000 * 255)
         self._ev.write(ecodes.EV_ABS, self._mapping[self._ch], value)
+        self._ev.syn()
 
         self._ch += 1
 
