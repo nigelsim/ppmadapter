@@ -121,6 +121,8 @@ class PPMDecoder(object):
             signal width
         """
         if w > self._marker:
+            if self._ch is None:
+                print("Got sync")
             self._ch = 0
             return
 
