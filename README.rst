@@ -4,8 +4,15 @@ PPM Adapter
 This is a userspace application that reads the PPM audio stream produced by
 many RC controllers, and produces a virtual joystick using the uinput system.
 
-Firstly
--------
+Installation
+------------
+
+This application requires two libraries, pyaudio and python-evdev. They are declared in the setup.cfg file, so will be installed if you ``pip install``, but you can also install them using the system package manager. On Ubuntu (15.10)::
+
+        sudo apt-get install python-pyaudio python-evdev
+
+Notes
+-----
 
 Ignore any input like the following, it is a consequence of using the Port Audio library from what I can tell.:: 
 
@@ -17,6 +24,9 @@ Ignore any input like the following, it is a consequence of using the Port Audio
         Cannot connect to server request channel
         jack server is not running or cannot be started
 
+I have only tested this with my Turnigy 9XR Pro using the JR training port, and a cheap USB audio card that got bundled with a heli sim. It has a sample rate of 48000Hz, and USB ID of *0c76:1607 JMTek, LLC. audio controller*.
+
+The only simulator that I've tried this with is FPV Freerunner. Sometimes I need to stop and start PPMAdapter to get the full range on the channels, but once it starts working it seems to keep working.
 
 Usage
 -----
