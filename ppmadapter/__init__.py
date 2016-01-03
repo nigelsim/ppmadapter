@@ -19,6 +19,24 @@ import argparse
 import sys
 from evdev import UInput, ecodes
 import struct
+from ctypes import CFUNCTYPE, c_char_p, c_int, cdll
+from contextlib import contextmanager
+
+# Suppress ALSA errors
+# http://stackoverflow.com/questions/7088672
+ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+
+def py_error_handler(filename, line, function, err, fmt):
+    pass
+
+c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+
+@contextmanager
+def noalsaerr():
+    asound = cdll.LoadLibrary('libasound.so')
+    asound.snd_lib_error_set_handler(c_error_handler)
+    yield
+    asound.snd_lib_error_set_handler(None)
 
 
 class PPMDecoder(object):
@@ -116,6 +134,15 @@ class PPMDecoder(object):
 
         self._ch += 1
 
+def print_inputs():
+    with noalsaerr():
+        print("Input audio devices")
+        print("-------------------")
+        a = pyaudio.PyAudio()
+        for i in range(a.get_device_count()):
+            d = a.get_device_info_by_index(i)
+            print d['name']
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -125,19 +152,14 @@ def main():
     args = parser.parse_args()
 
     if args.action == 'inputs':
-        print("Input audio devices")
-        print("-------------------")
-        a = pyaudio.PyAudio()
-        for i in range(a.get_device_count()):
-            d = a.get_device_info_by_index(i)
-            print d['name']
-
+        print_inputs()
         return 0
 
     in_ix = None
     rate = None
     in_name = None
-    a = pyaudio.PyAudio()
+    with noalsaerr():
+        a = pyaudio.PyAudio()
     for i in range(a.get_device_count()):
         d = a.get_device_info_by_index(i)
         if args.i == d['name']:
