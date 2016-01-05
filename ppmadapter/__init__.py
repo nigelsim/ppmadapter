@@ -26,10 +26,12 @@ from contextlib import contextmanager
 # http://stackoverflow.com/questions/7088672
 ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
 
+
 def py_error_handler(filename, line, function, err, fmt):
     pass
 
 c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
+
 
 @contextmanager
 def noalsaerr():
@@ -52,9 +54,8 @@ class PPMDecoder(object):
         """
         self._rate = float(rate)
         self._lf = None
-        self._t = 0
         self._threshold = 15000
-        self._last = None
+        self._last_edge = None
         self._ch = None
 
         # Size in sampling intervals, of the frame space marker
@@ -70,8 +71,8 @@ class PPMDecoder(object):
 
         self._ev = UInput(name='ppmadapter',
                           events={
-                                  ecodes.EV_ABS: events,
-                                  ecodes.EV_KEY: {288: 'BTN_JOYSTICK'}
+                               ecodes.EV_ABS: events,
+                               ecodes.EV_KEY: {288: 'BTN_JOYSTICK'}
                           })
 
     def __enter__(self):
@@ -90,24 +91,29 @@ class PPMDecoder(object):
         data : list
             sample data
         """
+
         for i in range(len(data)):
-            this = data[i] > self._threshold
-            if self._last is None:
-                self._last = this
+            this_edge = data[i] > self._threshold
+            if self._last_edge is None:
+                self._last_edge = this_edge
                 continue
 
-            t = self._t + i
-            if this and not self._last:
+            if this_edge and not self._last_edge:
                 # rising
                 if self._lf is not None:
-                    self.signal(t - self._lf)
-            elif not this and self._last:
+                    self.signal(i - self._lf)
+            elif not this_edge and self._last_edge:
                 # falling
-                self._lf = t
+                self._lf = i
 
-            self._last = this
+            self._last_edge = this_edge
 
-        self._t = self._t + len(data)
+        if self._lf is not None:
+            self._lf = len(data) - self._lf
+            if self._lf < (-self._rate):
+                print("Lost sync")
+                self._ch = None
+                self._lf = None
 
     def signal(self, w):
         """Process the detected signal.
@@ -135,6 +141,7 @@ class PPMDecoder(object):
         self._ev.syn()
 
         self._ch += 1
+
 
 def print_inputs():
     with noalsaerr():
