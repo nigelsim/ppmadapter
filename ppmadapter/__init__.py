@@ -18,7 +18,7 @@ import pyaudio
 import argparse
 import sys
 from evdev import UInput, ecodes
-import struct
+import array
 from ctypes import CFUNCTYPE, c_char_p, c_int, cdll
 from contextlib import contextmanager
 
@@ -91,7 +91,7 @@ class PPMDecoder(object):
         data : list
             sample data
         """
-
+        sync_req = False
         for i in range(len(data)):
             this_edge = data[i] > self._threshold
             if self._last_edge is None:
@@ -101,15 +101,18 @@ class PPMDecoder(object):
             if this_edge and not self._last_edge:
                 # rising
                 if self._lf is not None:
-                    self.signal(i - self._lf)
+                    sync_req |= self.signal(i - self._lf)
             elif not this_edge and self._last_edge:
                 # falling
                 self._lf = i
 
             self._last_edge = this_edge
 
+        if sync_req:
+            self._ev.syn()
+
         if self._lf is not None:
-            self._lf = len(data) - self._lf
+            self._lf = self._lf - len(data)
             if self._lf < (-self._rate):
                 print("Lost sync")
                 self._ch = None
@@ -125,22 +128,28 @@ class PPMDecoder(object):
         ----------
         w : int
             signal width
+
+        Returns
+        -------
+        bool
+            does uinput require sync
         """
         if w > self._marker:
             if self._ch is None:
                 print("Got sync")
             self._ch = 0
-            return
+            return False
 
         if self._ch is None or self._ch not in self._mapping:
-            return
+            return False
 
         duration = float(w) / self._rate
         value = int((duration - 0.0007) * 1000 * 255)
         self._ev.write(ecodes.EV_ABS, self._mapping[self._ch], value)
-        self._ev.syn()
 
         self._ch += 1
+
+        return True
 
 
 def print_inputs():
@@ -183,20 +192,20 @@ def main():
 
     print("Using input: %s" % in_name)
 
-    chunk = 8192
+    chunk = 2048
 
     stream = a.open(format=pyaudio.paInt16,
                     channels=1,
                     rate=rate,
                     input=True,
-                    frames_per_buffer=chunk,
+                    frames_per_buffer=chunk*2,
                     input_device_index=in_ix)
 
     try:
         with PPMDecoder(rate) as ppm:
             while True:
                 sample = stream.read(chunk)
-                sample = struct.unpack('%dh' % (len(sample)/2, ), sample)
+                sample = array.array('h', sample)
                 ppm.feed(sample)
     finally:
         stream.close()
