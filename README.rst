@@ -69,6 +69,11 @@ A partial match will be done on the name to find the right adapter. At this poin
 
         input: ppmadapter as /devices/virtual/input/input62
 
+Controller setup
+''''''''''''''''
+
+I use a Turnigy 9XR PRO running OpenTX. I've got a model setup to use PPM 1-4 channels using ``22.5ms`` and ``350us`` spacing, with ``-`` polarity. When you plug your controller in you should see the words **Got sync** written.
+
 License
 -------
 GPL v3
